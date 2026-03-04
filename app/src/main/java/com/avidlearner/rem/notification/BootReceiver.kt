@@ -16,10 +16,13 @@ class BootReceiver : BroadcastReceiver() {
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val settingsRepo = SettingsRepository(context)
-                    val settings = settingsRepo.appSettingsFlow.first()
+                    val timerDao = com.avidlearner.rem.data.room.AppDatabase.getDatabase(context).timerDao()
+                    val enabledTimers = timerDao.getEnabledTimersSync()
                     val alarmScheduler = AlarmScheduler(context)
-                    alarmScheduler.scheduleAlarm(settings.hour, settings.minute)
+                    
+                    for (timer in enabledTimers) {
+                        alarmScheduler.scheduleAlarm(timer)
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 } finally {

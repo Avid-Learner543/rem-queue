@@ -17,21 +17,11 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "se
 class SettingsRepository(private val context: Context) {
 
     private object PreferencesKeys {
-        val NOTIFICATION_HOUR = intPreferencesKey("notification_hour")
-        val NOTIFICATION_MINUTE = intPreferencesKey("notification_minute")
         val NOTIFICATION_TITLE = stringPreferencesKey("notification_title")
         val IS_PERSISTENT = booleanPreferencesKey("is_persistent")
         val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
         val NOTIFICATION_COLOR = longPreferencesKey("notification_color")
         val USE_ADAPTIVE_THEME = booleanPreferencesKey("use_adaptive_theme")
-    }
-
-    val notificationHourFlow: Flow<Int> = context.dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.NOTIFICATION_HOUR] ?: 9 // Default 9 AM
-    }
-
-    val notificationMinuteFlow: Flow<Int> = context.dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.NOTIFICATION_MINUTE] ?: 0 // Default 00 mins
     }
 
     val notificationTitleFlow: Flow<String> = context.dataStore.data.map { preferences ->
@@ -52,8 +42,6 @@ class SettingsRepository(private val context: Context) {
 
     // A single class to hold all settings for easier access in ViewModels
     data class AppSettings(
-        val hour: Int,
-        val minute: Int,
         val title: String,
         val isPersistent: Boolean,
         val isDarkMode: Boolean,
@@ -63,21 +51,12 @@ class SettingsRepository(private val context: Context) {
 
     val appSettingsFlow: Flow<AppSettings> = context.dataStore.data.map { preferences ->
         AppSettings(
-            hour = preferences[PreferencesKeys.NOTIFICATION_HOUR] ?: 9,
-            minute = preferences[PreferencesKeys.NOTIFICATION_MINUTE] ?: 0,
             title = preferences[PreferencesKeys.NOTIFICATION_TITLE] ?: "Quote of the Day",
             isPersistent = preferences[PreferencesKeys.IS_PERSISTENT] ?: false,
             isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE] ?: false,
             color = preferences[PreferencesKeys.NOTIFICATION_COLOR] ?: 0xFF6200EE,
             useAdaptiveTheme = preferences[PreferencesKeys.USE_ADAPTIVE_THEME] ?: false
         )
-    }
-
-    suspend fun saveNotificationTime(hour: Int, minute: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.NOTIFICATION_HOUR] = hour
-            preferences[PreferencesKeys.NOTIFICATION_MINUTE] = minute
-        }
     }
 
     suspend fun saveNotificationTitle(title: String) {

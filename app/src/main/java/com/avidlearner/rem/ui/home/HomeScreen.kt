@@ -34,11 +34,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,8 +52,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.avidlearner.rem.data.room.Quote
+import com.avidlearner.rem.data.room.Timer
 import com.avidlearner.rem.ui.MainViewModel
 import com.avidlearner.rem.ui.theme.PressStart2P
+import android.app.TimePickerDialog
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,8 +67,16 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val quotes by viewModel.allQuotes.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
+    val timers by viewModel.allTimers.collectAsState()
+    
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Reminders", "Timers")
+
+    var showAddQuoteDialog by remember { mutableStateOf(false) }
     var quoteToEdit by remember { mutableStateOf<Quote?>(null) }
+    
+    var showTimePicker by remember { mutableStateOf(false) }
+    var timerToEdit by remember { mutableStateOf<Timer?>(null) }
     
     val context = LocalContext.current
     
@@ -93,8 +110,10 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("Rem - Queue", fontFamily = PressStart2P) },
                 actions = {
-                    IconButton(onClick = { viewModel.shuffleQuotes() }) {
-                        Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                    if (selectedTab == 0) {
+                        IconButton(onClick = { viewModel.shuffleQuotes() }) {
+                            Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                        }
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
@@ -103,48 +122,108 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Quote")
+            FloatingActionButton(onClick = { 
+                if (selectedTab == 0) {
+                    showAddQuoteDialog = true 
+                } else {
+                    showTimePicker = true
+                }
+            }) {
+                Icon(Icons.Default.Add, contentDescription = "Add")
             }
         }
     ) { padding ->
-        if (quotes.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No quotes yet. Add one!",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(quotes, key = { it.id }) { quote ->
-                    QuoteItem(
-                        quote = quote,
-                        onEdit = { quoteToEdit = quote },
-                        onDelete = { viewModel.deleteQuote(quote) }
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            TabRow(selectedTabIndex = selectedTab) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title) }
                     )
+                }
+            }
+
+            if (selectedTab == 0) {
+                if (quotes.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No quotes yet. Add one!", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(quotes, key = { it.id }) { quote ->
+                            QuoteItem(
+                                quote = quote,
+                                onEdit = { quoteToEdit = quote },
+                                onDelete = { viewModel.deleteQuote(quote) }
+                            )
+                        }
+                    }
+                }
+            } else {
+                if (timers.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No timers yet. Add one!", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(timers, key = { it.id }) { timer ->
+                            TimerItem(
+                                timer = timer,
+                                onToggle = { isEnabled -> viewModel.updateTimer(timer.copy(isEnabled = isEnabled)) },
+                                onEdit = { timerToEdit = timer },
+                                onDelete = { viewModel.deleteTimer(timer) }
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 
-    if (showAddDialog) {
+    if (showAddQuoteDialog) {
         AddEditQuoteDialog(
             quote = null,
-            onDismiss = { showAddDialog = false },
+            onDismiss = { showAddQuoteDialog = false },
             onSave = { text ->
                 viewModel.addQuote(text)
-                showAddDialog = false
+                showAddQuoteDialog = false
             }
         )
+    }
+
+    if (showTimePicker || timerToEdit != null) {
+        val initialHour = timerToEdit?.hour ?: 9
+        val initialMinute = timerToEdit?.minute ?: 0
+        TimePickerDialog(
+            context,
+            { _, hourOfDay, minute ->
+                if (timerToEdit != null) {
+                    viewModel.updateTimer(timerToEdit!!.copy(hour = hourOfDay, minute = minute))
+                    timerToEdit = null
+                } else {
+                    viewModel.addTimer(hourOfDay, minute)
+                    showTimePicker = false
+                }
+            },
+            initialHour,
+            initialMinute,
+            true // 24 hour view
+        ).apply {
+            setOnDismissListener { 
+                showTimePicker = false
+                timerToEdit = null
+            }
+            show()
+        }
     }
 
     quoteToEdit?.let { quote ->
@@ -221,4 +300,36 @@ fun AddEditQuoteDialog(
             }
         }
     )
+}
+
+@Composable
+fun TimerItem(timer: Timer, onToggle: (Boolean) -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val timeString = String.format("%02d:%02d", timer.hour, timer.minute)
+            Text(
+                text = timeString,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.headlineMedium
+            )
+            Switch(
+                checked = timer.isEnabled,
+                onCheckedChange = onToggle
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
 }

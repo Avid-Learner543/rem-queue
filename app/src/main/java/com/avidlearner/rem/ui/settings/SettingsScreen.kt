@@ -51,39 +51,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             
-            // Notification Time Settings
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Notification Time", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    val timeString = String.format("%02d:%02d", appSettings.hour, appSettings.minute)
-                    var showTimePicker by remember { mutableStateOf(false) }
-                    
-                    OutlinedButton(
-                        onClick = { showTimePicker = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Time: $timeString")
-                    }
 
-                    if (showTimePicker) {
-                        TimePickerDialog(
-                            context,
-                            { _, hourOfDay, minute ->
-                                viewModel.updateNotificationTime(hourOfDay, minute)
-                                showTimePicker = false
-                            },
-                            appSettings.hour,
-                            appSettings.minute,
-                            true // 24 hour view
-                        ).apply {
-                            setOnDismissListener { showTimePicker = false }
-                            show()
-                        }
-                    }
-                }
-            }
 
             // Notification Title Settings
             Card(modifier = Modifier.fillMaxWidth()) {

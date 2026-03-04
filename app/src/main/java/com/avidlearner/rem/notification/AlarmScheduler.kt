@@ -11,19 +11,21 @@ class AlarmScheduler(private val context: Context) {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    fun scheduleAlarm(hour: Int, minute: Int) {
-        val intent = Intent(context, AlarmReceiver::class.java)
+    fun scheduleAlarm(timer: com.avidlearner.rem.data.room.Timer) {
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra("TIMER_ID", timer.id)
+        }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            ALARM_REQUEST_CODE,
+            timer.id,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val calendar = Calendar.getInstance().apply {
             timeInMillis = System.currentTimeMillis()
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
+            set(Calendar.HOUR_OF_DAY, timer.hour)
+            set(Calendar.MINUTE, timer.minute)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
             
@@ -57,18 +59,16 @@ class AlarmScheduler(private val context: Context) {
         }
     }
 
-    fun cancelAlarm() {
-        val intent = Intent(context, AlarmReceiver::class.java)
+    fun cancelAlarm(timer: com.avidlearner.rem.data.room.Timer) {
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra("TIMER_ID", timer.id)
+        }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            ALARM_REQUEST_CODE,
+            timer.id,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
-    }
-
-    companion object {
-        const val ALARM_REQUEST_CODE = 1001
     }
 }

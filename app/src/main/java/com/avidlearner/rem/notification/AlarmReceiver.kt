@@ -17,9 +17,13 @@ class AlarmReceiver : BroadcastReceiver() {
         
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val timerId = intent.getIntExtra("TIMER_ID", -1)
                 val database = AppDatabase.getDatabase(context)
                 val quoteDao = database.quoteDao()
+                val timerDao = database.timerDao()
                 val settingsRepo = SettingsRepository(context)
+
+                val timer = if (timerId != -1) timerDao.getTimerById(timerId) else null
 
                 // 1. Fetch quote
                 val firstQuote = quoteDao.getFirstInQueue()
@@ -43,10 +47,10 @@ class AlarmReceiver : BroadcastReceiver() {
                 }
 
                 // 5. Reschedule alarm automatically for the next occurrence
-                // Need to fetch current set hour & minute to reschedule
-                val settings = settingsRepo.appSettingsFlow.first()
                 val alarmScheduler = AlarmScheduler(context)
-                alarmScheduler.scheduleAlarm(settings.hour, settings.minute)
+                if (timer != null && timer.isEnabled) {
+                    alarmScheduler.scheduleAlarm(timer)
+                }
                 
             } catch (e: Exception) {
                 e.printStackTrace()

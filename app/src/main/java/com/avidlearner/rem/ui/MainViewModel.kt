@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.avidlearner.rem.data.datastore.SettingsRepository
 import com.avidlearner.rem.data.room.AppDatabase
 import com.avidlearner.rem.data.room.Quote
+import com.avidlearner.rem.data.room.Timer
 import com.avidlearner.rem.notification.AlarmScheduler
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val quoteDao = AppDatabase.getDatabase(application).quoteDao()
+    private val timerDao = AppDatabase.getDatabase(application).timerDao()
     private val settingsRepo = SettingsRepository(application)
     private val alarmScheduler = AlarmScheduler(application)
 
@@ -24,10 +26,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = emptyList()
     )
 
+    val allTimers: StateFlow<List<Timer>> = timerDao.getAllTimers().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     val appSettings: StateFlow<SettingsRepository.AppSettings> = settingsRepo.appSettingsFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = SettingsRepository.AppSettings(9, 0, "Quote of the Day", false, false, 0xFF6200EE, false)
+        initialValue = SettingsRepository.AppSettings("Quote of the Day", false, false, 0xFF6200EE, false)
     )
 
     fun addQuote(text: String) {
@@ -59,10 +67,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateNotificationTime(hour: Int, minute: Int) {
+    fun addTimer(hour: Int, minute: Int) {
         viewModelScope.launch {
-            settingsRepo.saveNotificationTime(hour, minute)
-            alarmScheduler.scheduleAlarm(hour, minute)
+            val timer = Timer(hour = hour, minute = minute)
+            val id = timerDao.insertTimer(timer)
+            alarmScheduler.scheduleAlarm(timer.copy(id = id.toInt()))
+        }
+    }
+
+    fun updateTimer(timer: Timer) {
+        viewModelScope.launch {
+            timerDao.updateTimer(timer)
+            if (timer.isEnabled) {
+                alarmScheduler.scheduleAlarm(timer)
+            } else {
+                alarmScheduler.cancelAlarm(timer)
+            }
+        }
+    }
+
+    fun deleteTimer(timer: Timer) {
+        viewModelScope.launch {
+            timerDao.deleteTimer(timer)
+            alarmScheduler.cancelAlarm(timer)
         }
     }
 
